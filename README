@@ -1,0 +1,18 @@
+This is a mirror of http://www.vim.org/scripts/script.php?script_id=1888
+
+Description:
+If you are editing diff file and you want to jump quickly to corresponding source files, function DiffGoFile does that. Place cursor on the spot in diff file which interests you, call DiffGoFile and you will be presented with the source file exactly at the place you were looking at. Currently only unified diff is supported, but the script has framework for adding more types.
+
+Invocation:
+Place cursor on the line you are interested in and
+:call DiffGoFile('X')
+Where X is one of: n - open in New window
+                   v - open in Vertical split
+                   h - open in Horizontal split
+                   t - open in new Tab
+
+Configuration:
+You may wish to setup a hotkey, I'm using CTRL-] (:tag) for example
+
+autocmd FileType diff nnoremap <buffer> <C-]> :call DiffGoFile('n')<CR>
+
