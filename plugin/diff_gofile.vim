@@ -22,10 +22,18 @@
 " Installation:
 " Copy script to your plugins directory
 
+" Invocation:
+" Place cursor on the line you are interested in and
+" :call DiffGoFile('X')
+" Where X is one of: n - open in New window
+"                    v - open in Vertical split
+"                    h - open in Horizontal split
+"                    t - open in new Tab
+
 " Configuration:
 " You may wish to setup a hotkey, I'm using CTRL-] (:tag) for example
 "
-" autocmd FileType diff nnoremap <buffer> <C-]> :call DiffGoFile()<CR>
+" autocmd FileType diff nnoremap <buffer> <C-]> :call DiffGoFile('n')<CR>
 
 " Possible TODOs:
 " * Support other diff types (normal, context)
@@ -33,7 +41,7 @@
 "   - to add new diff type, copy ParseUnified function to new one, and update
 "     s:parse_engines list at the end of this file
 "
-" Version: 1
+" Version: 2
 
 
 if exists("loaded_diffgofile")
@@ -44,11 +52,16 @@ let loaded_diffgofile = 1
 
 " Function : DiffGoFile
 " Purpose  : Find spot in file which corresponds to cursor in unified diff
-" Args     : -
+" Args     : How to split the window. Possibilities are
+"          : ('n', 'v', 'h', 't', 'n!', 'v!', 'h!', 't!')
+"          : (No split, Vertical, Horizonal, Tab).
+"          : adding '!' will call ':split !'
 " Returns  : -
 " Author   : Vladimir Marek <vlmarek@volny.cz>
 " History  : Support for Mercurial diffs (a/file, b/file)
-function DiffGoFile()
+"          : Support for splitting horizontally/vertically/in tab
+if !(exists("*s:DiffGoFile"))
+function DiffGoFile(doSplit)
 	let l:pos = <SID>SaveCursorPositon()
 
 	for l:Engine in s:parse_engines
@@ -78,9 +91,10 @@ function DiffGoFile()
 
 	" restore position in diff window
 	call <SID>RestoreCursorPosition (l:pos)
-	call <SID>FindOrCreateBuffer(l:result[0], 0, 1)
+	call <SID>FindOrCreateBuffer(l:result[0], a:doSplit, 1)
 	call <SID>RestoreCursorPosition (l:result[1:])
 endfunction
+endif
 
 
 " Function : ParseUnified (PRIVATE)
