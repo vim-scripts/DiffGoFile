@@ -1,4 +1,4 @@
-" Copyright (c) 2007
+" Copyright (c) 2013
 " Vladimir Marek <vlmarek@volny.cz>
 "
 " We grant permission to use, copy modify, distribute, and sell this
@@ -34,6 +34,7 @@
 " You may wish to setup a hotkey, I'm using CTRL-] (:tag) for example
 "
 " autocmd FileType diff nnoremap <buffer> <C-]> :call DiffGoFile('n')<CR>
+" autocmd FileType diff nnoremap <buffer> <C-W><C-]> :call DiffGoFile('v')<CR>
 
 " Possible TODOs:
 " * Support other diff types (normal, context)
@@ -41,13 +42,17 @@
 "   - to add new diff type, copy ParseUnified function to new one, and update
 "     s:parse_engines list at the end of this file
 "
-" Version: 2
+" Version: 4
 
 
-if exists("loaded_diffgofile")
+if exists("g:loaded_diffgofile")
     finish
 endif
 let loaded_diffgofile = 1
+
+if ! exists("g:diffgofile_directories_up")
+        let g:diffgofile_directories_up = 7
+endif
 
 
 " Function : DiffGoFile
@@ -60,6 +65,7 @@ let loaded_diffgofile = 1
 " Author   : Vladimir Marek <vlmarek@volny.cz>
 " History  : Support for Mercurial diffs (a/file, b/file)
 "          : Support for splitting horizontally/vertically/in tab
+"          : Searching for the file is now separated in LocateFile function
 if !(exists("*s:DiffGoFile"))
 function DiffGoFile(doSplit)
 	let l:pos = <SID>SaveCursorPositon()
@@ -76,25 +82,88 @@ function DiffGoFile(doSplit)
 		echoerr "Unknown diff format"
 		return
 	endif
-	
-	" Shouldn't this hack be rather moved to unified diff engine ? Can HG
-	" create other than unified diffs ?
-	if !filereadable(l:result[0])
-		" Mercurial diff ?
-		let l:result[0]=substitute(l:result[0], '^b/', '', '')
-	endif
 
-	if !filereadable(l:result[0])
+	let l:file = <SID>LocateFile(l:result[0])
+
+	if l:file == ''
 		echoerr "Can't find file ".l:result[0]
 		return
 	endif
 
 	" restore position in diff window
 	call <SID>RestoreCursorPosition (l:pos)
-	call <SID>FindOrCreateBuffer(l:result[0], a:doSplit, 1)
+	call <SID>FindOrCreateBuffer(l:file, a:doSplit, 0)
 	call <SID>RestoreCursorPosition (l:result[1:])
 endfunction
 endif
+
+
+" Function : LocateFile (PRIVATE)
+" Purpose  : Given file name, try ti find it on the disk. It may be relative
+"            to
+"            - current path
+"            - root directories could be set via g:diffgofile_environment
+"              variable
+"            - Hg or Git repository root
+"            - maximally g:diffgofile_environment directories up from current path
+" Args     : File name we are looking for
+" Returns  : If unsuccessful, exits with empty string
+"            If successful, returns filename which is guaranteed to be
+"            readable
+" Author   : Vladimir Marek <vlmarek@volny.cz>
+" History  : 
+function <SID>LocateFile(input)
+	if filereadable(a:input) | return a:input | endif
+
+        if exists('g:diffgofile_environment') && type(g:diffgofile_environment) != type([])
+                echoerr "g:diffgofile_environment must be an array"
+                return
+        endif
+
+        " Root defined in an environment variable?
+        if exists('g:diffgofile_environment')
+                for l:env in g:diffgofile_environment
+                        eval 'let l:tmp = $'.l:env
+                        let l:tmp = l:tmp."/".a:input
+                        if filereadable(l:tmp) | return l:tmp | endif
+                endfor
+        endif
+
+	" Mercurial diff ?
+        let l:path = substitute(system("hg root 2>/dev/null"), '\n', '', '')
+        if !empty(l:path)
+                let l:tmp = l:path . '/' . substitute(a:input, '^b/', '', '')
+                if filereadable(l:tmp) | return l:tmp | endif
+        endif
+
+	" Git diff ?
+        let l:path = substitute(system("git -c 'alias.root=!pwd' root 2>/dev/null"), '\n', '', '')
+        if !empty(l:path)
+                let l:tmp = l:path . '/' . substitute(a:input, '^b/', '', '')
+                if filereadable(l:tmp) | return l:tmp | endif
+        endif
+
+        " Try walking the directory tree up to see if we'll find our root
+        let l:tmp = a:input
+        for l:i in range (g:diffgofile_directories_up)
+                let l:tmp = '../' . l:tmp
+                if filereadable(l:tmp) | return l:tmp | endif
+        endfor
+
+        " Now as a last hope, see if we can remove b/ from the front of the
+        " path and try walking the directory tree up again. This might happen
+        " if we are in hg/git tree, but hg/git binary is unavailable. We have
+        " to try current directory first, so we loop once more
+        let l:tmp = substitute(a:input, '^b/', '', '')
+        if l:tmp != a:input
+                for l:i in range (g:diffgofile_directories_up + 1)
+                        if filereadable(l:tmp) | return l:tmp | endif
+                        let l:tmp = '../' . l:tmp
+                endfor
+        endif
+
+        return ''
+endfunction
 
 
 " Function : ParseUnified (PRIVATE)

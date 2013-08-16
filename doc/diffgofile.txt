@@ -1,0 +1,144 @@
+*diffgofile.txt*	For Vim version 7.3.         Last change: 16 August 2013
+
+			   -------------------
+			   DiffGoFile ftplugin
+			   -------------------
+
+Author:  Vladimr Marek <vlmarek@volny.cz>
+Copyright: (c) 2007-2013 by Vladimir Marek
+	   The VIM LICENSE applies to diff_gofile.vim, and diffgofile.txt
+	   (see |copyright|) except use "diffgofile" instead of "Vim".
+	   No warranty, express or implied.
+	   Use At-Your-Own-Risk!
+
+==============================================================================
+1. Contents					 *diffgofile* *diffgofile-contents*
+
+	1. Contents......................................: |diffgofile-contents|
+	2. Introduction..................................: |diffgofile-intro|
+	3. Operation.....................................: |diffgofile-operation|
+	4. Configuration.................................: |diffgofile-configuration|
+	5. Mapping DiffGoFile Keys.......................: |diffgofile-keys|
+	6. DiffGoFile History............................: |diffgofile-history|
+
+
+==============================================================================
+2. DiffGoFile Introduction				      *diffgofile-intro*
+
+	If you are editing diff file and you want to jump quickly to
+	corresponding source files, function |DiffGoFile| does that. Place
+	cursor on the spot in diff file which interests you, call |DiffGoFile|
+	and you will be presented with the source file exactly at the place
+	you were looking at. Currently only unified diff is supported, but the
+	script has framework for adding more types.
+
+
+==============================================================================
+3. DiffGoFile Operation 		     *DiffGoFile()* *diffgofile-operation*
+
+	DiffGoFile is invoked via
+	
+		:call DiffGoFile('<char>')
+	
+	where <char> is one of
+	   n - open in New window
+	   v - open in Vertical split
+	   h - open in Horizontal split
+	   t - open in new Tab
+
+	The function |DiffGoFile| records the position of the cursor in the diff
+	file, opens the file which corresponds to the diff section you are
+	looking at and places the cursor so that the view corresponds to where
+	you had it in the diff file. This particulary usefull when you want to
+	overview changes made to version controlled repository before the
+	commit. Example with mercurial repository
+
+		$ hg diff | vi -
+
+	|DiffGoFile| tries to be clever while opening the actual file
+	corresponding to the diff change. If the diff says
+
+	   diff --git a/file b/file
+	   --- a/file
+	   +++ b/file
+	
+	1) |DiffGoFile| tries to open b/file. If the file does not exist, DiffGoFile
+	that the path is relative to repository root but we are somewhere deep
+	in the directory tree.
+
+	2) Global variable |g:diffgofile_environment| is consulted. If it
+	contains list of directories, they are tried one by one to see if we
+	can find 'b/file' there.
+
+	3) It is tested whether we are in Mercurial or Git repository and if
+	yes, |DiffGoFile| tries to open '$(repo root)/file' (both Mercurial and
+	Git add 'b/' in front of the changed files).
+
+	4) After that, |DiffGoFile| tries to climb up the directory tree to see
+	if one of the parent directories contains file 'b/file'. Number of
+	directories scanned is limited by |g:diffgofile_directories_up|
+
+	5) If all failed, |DiffGoFile| tires to remove 'b/' from the front of
+	the wanted file name and then tries to climb up the directory tree as
+	in 4).
+
+	After that |DiffGoFile| gives up.
+
+
+==============================================================================
+4. DiffGoFile Configuration 			      *diffgofile-configuration*
+
+OVERRIDING WHERE REPOSITORY ROOT IS SEARCHED	      *g:diffgofile_environment*
+
+	Some version control systems have no easy way of telling where
+	repository root is located. You may help |DiffGoFile| find the files
+	by specifying the root in environment variable. _Name_ of the
+	variable(s) which will contain repo root is set in
+	|g:diffgofile_environment|. Please note that this variable is an
+	array.
+
+	:let g:diffgofile_environment = ["SRC"]
+
+	$ export SRC=/my/workspace
+	$ vi my_diff_file
+	...
+
+
+CONTROLLING HOW FAR REPO ROOT IS SEARCHED   	   *g:diffgofile_directories_up*
+
+	DiffGoFile walks the directory structure up in an effort to try to
+	find the file whose diff you are viewing. You can control how far it
+	goes by |g:diffgofile_environment|variable. By default it's 7
+	
+	:set g:diffgofile_environment = 7
+
+PREVENTING LOADING					   *g:loaded_diffgofile*
+
+	If for some reason you don't want to have the |ftplugin| loaded, add
+	this to your .vimrc:
+
+	let g:loaded_diffgofile = 1
+
+
+==============================================================================
+5. Mapping DiffGoFile Keys 				       *diffgofile-keys*
+
+	It is handy to set key mapping. I am personally using
+
+	nnoremap <silent><buffer> <C-]>      :call DiffGoFile('n')<CR>
+	nnoremap <silent><buffer> <C-W><C-]> :call DiffGoFile('v')<CR>
+	nnoremap <silent><buffer> <C-W>]     :call DiffGoFile('v')<CR>
+
+
+==============================================================================
+6. DiffGoFile History					    *diffgofile-history*
+
+	4  : 2013-08-16   * Documentation
+	                  * More clever repository root detection
+	2  : 2007-05-10   * Ability to open the source file in new
+	                    buffer/vertical split/horizontal split/new tab 
+	                  * Script was reworked to became ftplugin
+	1  : 2007-05-07   * Initial release
+
+==============================================================================
+vim:tw=78:ts=8:ft=help
